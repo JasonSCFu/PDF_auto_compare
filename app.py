@@ -21,6 +21,11 @@ from flask import send_from_directory, jsonify
 from PyPDF2 import PdfReader
 import difflib
 
+from io import BytesIO
+
+# Store uploaded PDFs in-memory for the session
+session_pdfs = {}
+
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'pdf1' not in request.files or 'pdf2' not in request.files:
@@ -29,27 +34,20 @@ def upload():
     pdf2 = request.files['pdf2']
     if not (allowed_file(pdf1.filename) and allowed_file(pdf2.filename)):
         return jsonify({'success': False, 'error': 'Invalid file type.'})
-    filename1 = secure_filename(pdf1.filename)
-    filename2 = secure_filename(pdf2.filename)
-    path1 = os.path.join(app.config['UPLOAD_FOLDER'], filename1)
-    path2 = os.path.join(app.config['UPLOAD_FOLDER'], filename2)
-    pdf1.save(path1)
-    pdf2.save(path2)
-    # Save filenames in session or temp file for later steps (for demo, save globally)
-    global last_uploaded
-    last_uploaded = {'pdf1': filename1, 'pdf2': filename2}
+    # Store PDFs in memory for this session/request
+    session_pdfs['pdf1'] = BytesIO(pdf1.read())
+    session_pdfs['pdf2'] = BytesIO(pdf2.read())
     return jsonify({'success': True})
 
 @app.route('/extract', methods=['POST'])
 def extract():
     page1 = int(request.form.get('page1', 1)) - 1
     page2 = int(request.form.get('page2', 1)) - 1
-    filenames = last_uploaded
-    path1 = os.path.join(app.config['UPLOAD_FOLDER'], filenames['pdf1'])
-    path2 = os.path.join(app.config['UPLOAD_FOLDER'], filenames['pdf2'])
     try:
-        reader1 = PdfReader(path1)
-        reader2 = PdfReader(path2)
+        session_pdfs['pdf1'].seek(0)
+        session_pdfs['pdf2'].seek(0)
+        reader1 = PdfReader(session_pdfs['pdf1'])
+        reader2 = PdfReader(session_pdfs['pdf2'])
         text1 = reader1.pages[page1].extract_text() if page1 < len(reader1.pages) else ''
         text2 = reader2.pages[page2].extract_text() if page2 < len(reader2.pages) else ''
     except Exception as e:
@@ -62,23 +60,47 @@ def extract():
 def compare():
     text1 = request.form.get('text1', '')
     text2 = request.form.get('text2', '')
-    # Use difflib to compare at character level
-    diff = difflib.ndiff(text1, text2)
-    result_html = ''
+    # Use difflib.SequenceMatcher for detailed diff
+    sm = difflib.SequenceMatcher(None, text1, text2)
+    result_html1 = ''
+    result_html2 = ''
     result_text = ''
-    for part in diff:
-        code = part[0]
-        char = part[2:]
-        if code == '+':
-            result_html += f'<span class="diff-added">{char}</span>'
-        elif code == '-':
-            result_html += f'<span class="diff-removed">{char}</span>'
-        else:
-            result_html += char
-        result_text += part
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag == 'equal':
+            result_html1 += text1[i1:i2]
+            result_html2 += text2[j1:j2]
+            result_text += text1[i1:i2]
+        elif tag == 'replace':
+            # If the only difference is spaces, don't highlight
+            t1 = text1[i1:i2]
+            t2 = text2[j1:j2]
+            if t1.strip() == '' and t2.strip() == '':
+                result_html1 += t1
+                result_html2 += t2
+                result_text += t1
+            else:
+                result_html1 += f'<span class="diff-removed">{t1}</span>'
+                result_html2 += f'<span class="diff-added">{t2}</span>'
+                result_text += f'-{t1}+{t2}'
+        elif tag == 'delete':
+            t1 = text1[i1:i2]
+            if t1.strip() == '':
+                result_html1 += t1
+                result_text += t1
+            else:
+                result_html1 += f'<span class="diff-removed">{t1}</span>'
+                result_text += f'-{t1}'
+        elif tag == 'insert':
+            t2 = text2[j1:j2]
+            if t2.strip() == '':
+                result_html2 += t2
+                result_text += t2
+            else:
+                result_html2 += f'<span class="diff-added">{t2}</span>'
+                result_text += f'+{t2}'
     global last_result
     last_result = result_text
-    return jsonify({'success': True, 'result_html': result_html, 'result_text': result_text})
+    return jsonify({'success': True, 'result_html1': result_html1, 'result_html2': result_html2, 'result_text': result_text})
 
 @app.route('/download', methods=['GET'])
 def download():
