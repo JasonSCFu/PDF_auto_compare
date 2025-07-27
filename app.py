@@ -62,23 +62,29 @@ def extract():
 def compare():
     text1 = request.form.get('text1', '')
     text2 = request.form.get('text2', '')
-    # Use difflib to compare at character level
-    diff = difflib.ndiff(text1, text2)
-    result_html = ''
+    # Use difflib.SequenceMatcher for detailed diff
+    sm = difflib.SequenceMatcher(None, text1, text2)
+    result_html1 = ''
+    result_html2 = ''
     result_text = ''
-    for part in diff:
-        code = part[0]
-        char = part[2:]
-        if code == '+':
-            result_html += f'<span class="diff-added">{char}</span>'
-        elif code == '-':
-            result_html += f'<span class="diff-removed">{char}</span>'
-        else:
-            result_html += char
-        result_text += part
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag == 'equal':
+            result_html1 += text1[i1:i2]
+            result_html2 += text2[j1:j2]
+            result_text += text1[i1:i2]
+        elif tag == 'replace':
+            result_html1 += f'<span class="diff-removed">{text1[i1:i2]}</span>'
+            result_html2 += f'<span class="diff-added">{text2[j1:j2]}</span>'
+            result_text += f'-{text1[i1:i2]}+{text2[j1:j2]}'
+        elif tag == 'delete':
+            result_html1 += f'<span class="diff-removed">{text1[i1:i2]}</span>'
+            result_text += f'-{text1[i1:i2]}'
+        elif tag == 'insert':
+            result_html2 += f'<span class="diff-added">{text2[j1:j2]}</span>'
+            result_text += f'+{text2[j1:j2]}'
     global last_result
     last_result = result_text
-    return jsonify({'success': True, 'result_html': result_html, 'result_text': result_text})
+    return jsonify({'success': True, 'result_html1': result_html1, 'result_html2': result_html2, 'result_text': result_text})
 
 @app.route('/download', methods=['GET'])
 def download():

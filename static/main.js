@@ -58,6 +58,26 @@ $(document).ready(function() {
     });
 
     // Compare highlights
+    // Store original extracted text for reset
+    let originalText1 = '';
+    let originalText2 = '';
+
+    // After extraction, store the original text
+    $('#extract-form').on('submit', function(e) {
+        e.preventDefault();
+        var page1 = $('input[name="page1"]').val();
+        var page2 = $('input[name="page2"]').val();
+        $.post('/extract', { page1: page1, page2: page2 }, function(data) {
+            if (data.success) {
+                $('#highlight-section').show();
+                $('#pdf1-text').text(data.text1);
+                $('#pdf2-text').text(data.text2);
+                originalText1 = data.text1;
+                originalText2 = data.text2;
+            }
+        });
+    });
+
     $('#compare-btn').on('click', function() {
         var text1 = selectedHighlight1;
         var text2 = selectedHighlight2;
@@ -67,10 +87,21 @@ $(document).ready(function() {
         }
         $.post('/compare', { text1: text1, text2: text2 }, function(data) {
             if (data.success) {
+                // Insert diff HTML directly into the extracted text areas
+                $('#pdf1-text').html(data.result_html1);
+                $('#pdf2-text').html(data.result_html2);
                 $('#result-section').show();
-                $('#compare-result').html(data.result_html);
                 $("#download-btn").attr('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(data.result_text));
             }
         });
+    });
+
+    // Reset button handler
+    $('#reset-btn').on('click', function() {
+        $('#pdf1-text').text(originalText1);
+        $('#pdf2-text').text(originalText2);
+        selectedHighlight1 = '';
+        selectedHighlight2 = '';
+        $('#result-section').hide();
     });
 });
