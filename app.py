@@ -71,15 +71,33 @@ def compare():
             result_html2 += text2[j1:j2]
             result_text += text1[i1:i2]
         elif tag == 'replace':
-            result_html1 += f'<span class="diff-removed">{text1[i1:i2]}</span>'
-            result_html2 += f'<span class="diff-added">{text2[j1:j2]}</span>'
-            result_text += f'-{text1[i1:i2]}+{text2[j1:j2]}'
+            # If the only difference is spaces, don't highlight
+            t1 = text1[i1:i2]
+            t2 = text2[j1:j2]
+            if t1.strip() == '' and t2.strip() == '':
+                result_html1 += t1
+                result_html2 += t2
+                result_text += t1
+            else:
+                result_html1 += f'<span class="diff-removed">{t1}</span>'
+                result_html2 += f'<span class="diff-added">{t2}</span>'
+                result_text += f'-{t1}+{t2}'
         elif tag == 'delete':
-            result_html1 += f'<span class="diff-removed">{text1[i1:i2]}</span>'
-            result_text += f'-{text1[i1:i2]}'
+            t1 = text1[i1:i2]
+            if t1.strip() == '':
+                result_html1 += t1
+                result_text += t1
+            else:
+                result_html1 += f'<span class="diff-removed">{t1}</span>'
+                result_text += f'-{t1}'
         elif tag == 'insert':
-            result_html2 += f'<span class="diff-added">{text2[j1:j2]}</span>'
-            result_text += f'+{text2[j1:j2]}'
+            t2 = text2[j1:j2]
+            if t2.strip() == '':
+                result_html2 += t2
+                result_text += t2
+            else:
+                result_html2 += f'<span class="diff-added">{t2}</span>'
+                result_text += f'+{t2}'
     global last_result
     last_result = result_text
     return jsonify({'success': True, 'result_html1': result_html1, 'result_html2': result_html2, 'result_text': result_text})
