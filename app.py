@@ -21,6 +21,11 @@ from flask import send_from_directory, jsonify
 from PyPDF2 import PdfReader
 import difflib
 
+from io import BytesIO
+
+# Store uploaded PDFs in-memory for the session
+session_pdfs = {}
+
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'pdf1' not in request.files or 'pdf2' not in request.files:
@@ -29,27 +34,20 @@ def upload():
     pdf2 = request.files['pdf2']
     if not (allowed_file(pdf1.filename) and allowed_file(pdf2.filename)):
         return jsonify({'success': False, 'error': 'Invalid file type.'})
-    filename1 = secure_filename(pdf1.filename)
-    filename2 = secure_filename(pdf2.filename)
-    path1 = os.path.join(app.config['UPLOAD_FOLDER'], filename1)
-    path2 = os.path.join(app.config['UPLOAD_FOLDER'], filename2)
-    pdf1.save(path1)
-    pdf2.save(path2)
-    # Save filenames in session or temp file for later steps (for demo, save globally)
-    global last_uploaded
-    last_uploaded = {'pdf1': filename1, 'pdf2': filename2}
+    # Store PDFs in memory for this session/request
+    session_pdfs['pdf1'] = BytesIO(pdf1.read())
+    session_pdfs['pdf2'] = BytesIO(pdf2.read())
     return jsonify({'success': True})
 
 @app.route('/extract', methods=['POST'])
 def extract():
     page1 = int(request.form.get('page1', 1)) - 1
     page2 = int(request.form.get('page2', 1)) - 1
-    filenames = last_uploaded
-    path1 = os.path.join(app.config['UPLOAD_FOLDER'], filenames['pdf1'])
-    path2 = os.path.join(app.config['UPLOAD_FOLDER'], filenames['pdf2'])
     try:
-        reader1 = PdfReader(path1)
-        reader2 = PdfReader(path2)
+        session_pdfs['pdf1'].seek(0)
+        session_pdfs['pdf2'].seek(0)
+        reader1 = PdfReader(session_pdfs['pdf1'])
+        reader2 = PdfReader(session_pdfs['pdf2'])
         text1 = reader1.pages[page1].extract_text() if page1 < len(reader1.pages) else ''
         text2 = reader2.pages[page2].extract_text() if page2 < len(reader2.pages) else ''
     except Exception as e:
