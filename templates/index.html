@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PDF Compare Tool</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.3/css/bulma.min.css">
+    <style>
+        .highlighted { background-color: yellow; }
+        .diff-added { background-color: #c8e6c9; }
+        .diff-removed { background-color: #ffcdd2; }
+    </style>
+</head>
+<body>
+<section class="section">
+    <div class="container">
+        <h1 class="title">PDF Compare Tool</h1>
+        <form id="upload-form" method="post" enctype="multipart/form-data" action="/upload">
+            <div class="field">
+                <label class="label">PDF 1</label>
+                <div class="control">
+                    <input class="input" type="file" name="pdf1" accept="application/pdf" required>
+                </div>
+            </div>
+            <div class="field">
+                <label class="label">PDF 2</label>
+                <div class="control">
+                    <input class="input" type="file" name="pdf2" accept="application/pdf" required>
+                </div>
+            </div>
+            <div class="field is-grouped">
+                <div class="control">
+                    <button class="button is-link" type="submit">Upload PDFs</button>
+                </div>
+            </div>
+        </form>
+        <div id="extract-section" style="display:none;">
+            <form id="extract-form">
+                <div class="field">
+                    <label class="label">Page Number (PDF 1)</label>
+                    <input class="input" type="number" name="page1" min="1" required>
+                </div>
+                <div class="field">
+                    <label class="label">Page Number (PDF 2)</label>
+                    <input class="input" type="number" name="page2" min="1" required>
+                </div>
+                <div class="control">
+                    <button class="button is-info" type="submit">Extract Pages</button>
+                </div>
+            </form>
+        </div>
+        <div id="highlight-section" style="display:none;">
+            <div class="columns">
+                <div class="column">
+                    <h2 class="subtitle">PDF 1 Extracted Text</h2>
+                    <pre id="pdf1-text"></pre>
+                    <button class="button is-warning" id="highlight1-btn">Highlight Selection</button>
+                </div>
+                <div class="column">
+                    <h2 class="subtitle">PDF 2 Extracted Text</h2>
+                    <pre id="pdf2-text"></pre>
+                    <button class="button is-warning" id="highlight2-btn">Highlight Selection</button>
+                </div>
+            </div>
+            <button class="button is-primary" id="compare-btn">Compare Highlights</button>
+        </div>
+        <div id="result-section" style="display:none;">
+            <h2 class="subtitle">Comparison Result</h2>
+            <pre id="compare-result"></pre>
+            <a class="button is-success" id="download-btn" href="#" download="comparison_result.txt">Download Result</a>
+        </div>
+    </div>
+</section>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="/static/main.js"></script>
+</body>
+</html>
