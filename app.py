@@ -60,44 +60,65 @@ def extract():
 def compare():
     text1 = request.form.get('text1', '')
     text2 = request.form.get('text2', '')
-    # Use difflib.SequenceMatcher for detailed diff
     sm = difflib.SequenceMatcher(None, text1, text2)
     result_html1 = ''
     result_html2 = ''
     result_text = ''
+    context_window = 20
     for tag, i1, i2, j1, j2 in sm.get_opcodes():
         if tag == 'equal':
             result_html1 += text1[i1:i2]
             result_html2 += text2[j1:j2]
             result_text += text1[i1:i2]
         elif tag == 'replace':
-            # If the only difference is spaces, don't highlight
             t1 = text1[i1:i2]
             t2 = text2[j1:j2]
+            # Ignore differences that are only in whitespace (spaces, tabs, newlines, indentation)
+            if t1.strip() == t2.strip():
+                # Only whitespace/indent difference, treat as equal
+                result_html1 += t1
+                result_html2 += t2
+                result_text += t1
+                continue
+            # Check context around the diff
+            ctx1_before = text1[max(i1-context_window, 0):i1]
+            ctx1_after = text1[i2:i2+context_window]
+            ctx2_before = text2[max(j1-context_window, 0):j1]
+            ctx2_after = text2[j2:j2+context_window]
+            context_match = (ctx1_before == ctx2_before) and (ctx1_after == ctx2_after)
             if t1.strip() == '' and t2.strip() == '':
                 result_html1 += t1
                 result_html2 += t2
                 result_text += t1
             else:
-                result_html1 += f'<span class="diff-removed">{t1}</span>'
-                result_html2 += f'<span class="diff-added">{t2}</span>'
-                result_text += f'-{t1}+{t2}'
+                if context_match:
+                    result_html1 += ctx1_before + f'<span class="diff-removed">{t1}</span>' + ctx1_after
+                    result_html2 += ctx2_before + f'<span class="diff-added">{t2}</span>' + ctx2_after
+                    result_text += ctx1_before + f'-{t1}' + ctx1_after + ctx2_before + f'+{t2}' + ctx2_after
+                else:
+                    result_html1 += ctx1_before + f'<span class="diff-removed context-mismatch">{t1}</span>' + ctx1_after
+                    result_html2 += ctx2_before + f'<span class="diff-added context-mismatch">{t2}</span>' + ctx2_after
+                    result_text += ctx1_before + f'-[context-mismatch]{t1}' + ctx1_after + ctx2_before + f'+[context-mismatch]{t2}' + ctx2_after
         elif tag == 'delete':
             t1 = text1[i1:i2]
+            ctx1_before = text1[max(i1-context_window, 0):i1]
+            ctx1_after = text1[i2:i2+context_window]
             if t1.strip() == '':
                 result_html1 += t1
                 result_text += t1
             else:
-                result_html1 += f'<span class="diff-removed">{t1}</span>'
-                result_text += f'-{t1}'
+                result_html1 += ctx1_before + f'<span class="diff-removed">{t1}</span>' + ctx1_after
+                result_text += ctx1_before + f'-{t1}' + ctx1_after
         elif tag == 'insert':
             t2 = text2[j1:j2]
+            ctx2_before = text2[max(j1-context_window, 0):j1]
+            ctx2_after = text2[j2:j2+context_window]
             if t2.strip() == '':
                 result_html2 += t2
                 result_text += t2
             else:
-                result_html2 += f'<span class="diff-added">{t2}</span>'
-                result_text += f'+{t2}'
+                result_html2 += ctx2_before + f'<span class="diff-added">{t2}</span>' + ctx2_after
+                result_text += ctx2_before + f'+{t2}' + ctx2_after
     global last_result
     last_result = result_text
     return jsonify({'success': True, 'result_html1': result_html1, 'result_html2': result_html2, 'result_text': result_text})
