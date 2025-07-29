@@ -58,6 +58,7 @@ def extract():
 
 @app.route('/compare', methods=['POST'])
 def compare():
+    global last_result
     text1 = request.form.get('text1', '')
     text2 = request.form.get('text2', '')
     # Remove all spaces for comparison, but keep original for highlighting
@@ -120,9 +121,6 @@ def compare():
     result_html1 += text1[last1:]
     result_html2 += text2[last2:]
     result_text += text1[last1:]
-    global last_result
-    last_result = result_text
-    return jsonify({'success': True, 'result_html1': result_html1, 'result_html2': result_html2, 'result_text': result_text})
     global last_result
     last_result = result_text
     return jsonify({'success': True, 'result_html1': result_html1, 'result_html2': result_html2, 'result_text': result_text})
